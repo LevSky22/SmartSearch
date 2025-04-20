@@ -10,6 +10,30 @@ const assetManifest = JSON.parse(manifestJSON);
 export default {
   async fetch(request, env, ctx) {
     try {
+      // Rate limiting logic
+      const ip = request.headers.get('cf-connecting-ip');
+      const rateLimitKey = `ratelimit:${ip}`;
+      
+      // Get current count from KV store
+      let count = await env.RATE_LIMITS.get(rateLimitKey);
+      count = count ? parseInt(count) : 0;
+      
+      // Allow 2000 requests per IP per day (adjust as needed)
+      if (count > 2000) {
+        return new Response('Rate limit exceeded', { 
+          status: 429,
+          headers: {
+            'Retry-After': '86400',
+            'Access-Control-Allow-Origin': '*'
+          }
+        });
+      }
+      
+      // Increment counter with 24h expiry
+      await env.RATE_LIMITS.put(rateLimitKey, count + 1, {
+        expirationTtl: 86400
+      });
+
       const url = new URL(request.url);
       
       const createResponse = (response) => {
