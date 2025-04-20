@@ -1,10 +1,13 @@
 export function getSettingsPage(url) {
   return `<!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <title>Smart Search Router</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self'; style-src 'self'">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="no-referrer">
     <link rel="icon" type="image/png" sizes="16x16" href="/assets/icons/icon16.png">
     <link rel="icon" type="image/png" sizes="48x48" href="/assets/icons/icon48.png">
     <link rel="icon" type="image/png" sizes="128x128" href="/assets/icons/icon128.png">
@@ -24,7 +27,7 @@ export function getSettingsPage(url) {
         <h3>Browser Extension Setup</h3>
         <p>Install the SmartSearch extension:</p>
         <ol>
-          <li>Download and unzip the extension from <a href="https://github.com/LevSky22/SmartSearch/releases" class="button">GitHub Releases</a></li>
+          <li>Download and unzip the extension from <a href="https://github.com/LevSky22/SmartSearch/releases" rel="noopener noreferrer" target="_blank" class="button">GitHub Releases</a></li>
           <li>Go to Chrome/Brave Extensions page (<code>chrome://extensions</code>)</li>
           <li>Enable "Developer mode" in the top right</li>
           <li>Click "Load unpacked" and select the unzipped extension folder</li>
@@ -52,7 +55,7 @@ export function getSettingsPage(url) {
     </div>
 
     <div class="footer">
-      <p>Made with ❤️ (and a lot of help from Claude 3.7 and o4-mini-high) by <a href="https://x.com/LevJampolsky" target="_blank">@LevJampolsky</a></p>
+      <p>Made with ❤️ (and a lot of help from Claude 3.7 and o4-mini-high) by <a href="https://x.com/LevJampolsky" rel="noopener noreferrer" target="_blank">@LevJampolsky</a></p>
     </div>
 </body>
 </html>`;
