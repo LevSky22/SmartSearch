@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "SmartSearch",
     "version": "2.0",
-    "description": "Smart search router that automatically chooses the best search engine based on your query",
+    "description": "Smart search engine that automatically chooses the best search engine based on your query",
     "author": "Lev Jampolsky",
     "homepage_url": "https://x.com/LevJampolsky",
     "permissions": [],
@@ -18,17 +18,12 @@
       "search_provider": {
         "name": "SmartSearch",
         "keyword": "smart",
-        "encoding": "UTF-8",
-        "is_default": true,
         "favicon_url": "https://smartsearch.lev-jampolsky.workers.dev/assets/icons/icon16.png",
         "search_url": "https://smartsearch.lev-jampolsky.workers.dev/search?q={searchTerms}",
         "suggest_url": "https://smartsearch.lev-jampolsky.workers.dev/suggest?q={searchTerms}",
-        "instant_url": "https://smartsearch.lev-jampolsky.workers.dev/search?q={searchTerms}",
         "image_url": "https://smartsearch.lev-jampolsky.workers.dev/search?q={searchTerms}&type=image",
-        "search_url_post_params": "q={searchTerms}",
-        "suggest_url_post_params": "q={searchTerms}",
-        "instant_url_post_params": "q={searchTerms}",
-        "image_url_post_params": "q={searchTerms}"
+        "encoding": "UTF-8",
+        "is_default": true
       }
     }
 }
