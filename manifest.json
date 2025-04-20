@@ -7,12 +7,8 @@
     "homepage_url": "https://x.com/LevJampolsky",
     "permissions": [],
     "host_permissions": [
-      "https://ipapi.co/*",
       "https://smartsearch.lev-jampolsky.workers.dev/*"
     ],
-    "omnibox": {
-      "keyword": "x"
-    },
     "icons": {
       "16": "assets/icons/icon16.png",
       "48": "assets/icons/icon48.png",

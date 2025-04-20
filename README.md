@@ -7,12 +7,9 @@ A browser extension for Chromium-based browsers that intelligently routes your s
 
 ## ✨ Features
 
-- Use the `x` keyword in your browser's omnibox (address bar) to activate the extension
 - Choose your preferred search engines for both questions and keywords
 - Supported search engines:
   - Google (with locale-specific domains)
-  - Bing
-  - DuckDuckGo
   - Perplexity
 - Seamless integration with your browser's address bar
 - Lightweight and fast
@@ -35,10 +32,10 @@ A browser extension for Chromium-based browsers that intelligently routes your s
 ## 📖 Usage
 
 1. Click the extension icon to configure your preferred search engines
-2. Type `x` in Chrome's address bar followed by a space
+2. Type `smart` in your address bar followed by a space
 3. Enter your search query:
-   - For questions: `x what is the capital of France?`
-   - For keywords: `x best restaurants nyc`
+   - For questions: `smart what is the capital of France?`
+   - For keywords: `smart best restaurants nyc`
 4. Press Enter to be redirected to your chosen search engine
 
 ## ⚙️ Configuration
@@ -55,13 +52,10 @@ A browser extension for Chromium-based browsers that intelligently routes your s
 ## 🔒 Privacy
 
 - No search queries are collected or stored by this extension
-- The only external service used is ipapi.co, which helps determine the appropriate Google domain for your region
-- ipapi.co is GDPR compliant, adhering to Europe's stringent privacy laws
+- Country detection is handled securely through Cloudflare's infrastructure
 - For search results, standard search engine Privacy Policies apply
 - The extension requires minimal permissions:
-  - `tabs`: To open search results in new tabs
   - `storage`: To save your search engine preferences
-  - Access to ipapi.co for location-based features
 
 ## 👥 Contributing
 
