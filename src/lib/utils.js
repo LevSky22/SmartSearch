@@ -13,17 +13,22 @@ export function getCountryFromRequest(request) {
 export function sanitizeQuery(query) {
   if (!query || typeof query !== 'string') return '';
   
-  // Remove potential HTML/script tags
-  query = query.replace(/<[^>]*>/g, '');
+  // Safety check for maximum query length
+  if (query.length > 1000) {
+    query = query.slice(0, 1000);
+  }
   
-  // Remove potential script injection characters
-  query = query.replace(/[<>{}()[\]\\\/]/g, '');
+  // Remove potential HTML/script tags more aggressively
+  query = query.replace(/<[^>]*>?/g, '');
   
-  // Remove multiple spaces
+  // Remove potential script injection characters and other problematic characters
+  query = query.replace(/[<>{}()[\]\\\/;`'"|&*%$^#@!~=+]/g, '');
+  
+  // Normalize whitespace
   query = query.replace(/\s+/g, ' ');
   
-  // Trim and limit length as additional safety
-  return query.trim().slice(0, 1000);
+  // Trim and encode special characters
+  return query.trim();
 }
 
 export function validateCountryCode(code) {
