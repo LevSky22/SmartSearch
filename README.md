@@ -1,11 +1,11 @@
-# Smart Search Router
+# 🔍 Smart Search Router
 
 A browser extension for Chromium-based browsers that intelligently routes your searches between your preferred search engines based on your query type.
 
-## Demo
+## 🎥 Demo
 ![Smart Search Router Demo](SmartSearch.gif)
 
-## Features
+## ✨ Features
 
 - Use the `x` keyword in your browser's omnibox (address bar) to activate the extension
 - Choose your preferred search engines for both questions and keywords
@@ -18,7 +18,7 @@ A browser extension for Chromium-based browsers that intelligently routes your s
 - Lightweight and fast
 - Settings sync across devices
 
-## Installation
+## 🚀 Installation
 
 ### Chrome
 1. Clone this repository or download the ZIP file
@@ -32,7 +32,7 @@ A browser extension for Chromium-based browsers that intelligently routes your s
 3. Enable "Developer mode" in the top right
 4. Click "Load unpacked" and select the extension directory
 
-## Usage
+## 📖 Usage
 
 1. Click the extension icon to configure your preferred search engines
 2. Type `x` in Chrome's address bar followed by a space
@@ -41,7 +41,7 @@ A browser extension for Chromium-based browsers that intelligently routes your s
    - For keywords: `x best restaurants nyc`
 4. Press Enter to be redirected to your chosen search engine
 
-## Configuration
+## ⚙️ Configuration
 
 1. Click the extension icon in your browser toolbar
 2. You'll see two dropdown menus:
@@ -52,7 +52,7 @@ A browser extension for Chromium-based browsers that intelligently routes your s
    - Keywords: Google (with locale-specific domains)
    - Questions: Perplexity
 
-## Privacy
+## 🔒 Privacy
 
 - No search queries are collected or stored by this extension
 - The only external service used is ipapi.co, which helps determine the appropriate Google domain for your region
@@ -63,15 +63,15 @@ A browser extension for Chromium-based browsers that intelligently routes your s
   - `storage`: To save your search engine preferences
   - Access to ipapi.co for location-based features
 
-## Contributing
+## 👥 Contributing
 
 Feel free to submit issues and pull requests.
 
-## License
+## 📄 License
 
 MIT License - feel free to use and modify as needed.
 
-## Credits
+## 🙏 Credits
 
 Matryoshka icon provided by [Icojam.com](https://icojam.com)
 
