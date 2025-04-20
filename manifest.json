@@ -1,26 +1,38 @@
 {
     "manifest_version": 3,
-    "name": "Smart Search Router",
-    "description": "Smart search router that lets you choose your preferred engines for questions and keywords. Use 'x' + query to search.",
-    "version": "1.1",
+    "name": "SmartSearch",
+    "version": "1.0",
+    "description": "Smart search router that automatically chooses the best search engine based on your query",
     "author": "Lev Jampolsky",
     "homepage_url": "https://x.com/LevJampolsky",
-    "permissions": ["tabs", "storage"],
+    "permissions": [],
     "host_permissions": [
-      "https://ipapi.co/*"
+      "https://ipapi.co/*",
+      "https://smartsearch.lev-jampolsky.workers.dev/*"
     ],
     "omnibox": {
       "keyword": "x"
     },
-    "background": {
-      "service_worker": "background.js"
-    },
-    "action": {
-      "default_popup": "popup.html"
-    },
     "icons": {
-      "16": "icons/icon16.png",
-      "48": "icons/icon48.png",
-      "128": "icons/icon128.png"
+      "16": "assets/icons/icon16.png",
+      "48": "assets/icons/icon48.png",
+      "128": "assets/icons/icon128.png"
+    },
+    "chrome_settings_overrides": {
+      "search_provider": {
+        "name": "SmartSearch",
+        "keyword": "smart",
+        "encoding": "UTF-8",
+        "is_default": true,
+        "favicon_url": "https://smartsearch.lev-jampolsky.workers.dev/assets/icons/icon16.png",
+        "search_url": "https://smartsearch.lev-jampolsky.workers.dev/search?q={searchTerms}",
+        "suggest_url": "https://smartsearch.lev-jampolsky.workers.dev/suggest?q={searchTerms}",
+        "instant_url": "https://smartsearch.lev-jampolsky.workers.dev/search?q={searchTerms}",
+        "image_url": "https://smartsearch.lev-jampolsky.workers.dev/search?q={searchTerms}&type=image",
+        "search_url_post_params": "q={searchTerms}",
+        "suggest_url_post_params": "q={searchTerms}",
+        "instant_url_post_params": "q={searchTerms}",
+        "image_url_post_params": "q={searchTerms}"
+      }
     }
-  }
+}

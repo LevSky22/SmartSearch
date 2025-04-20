@@ -1,0 +1,10 @@
+name = "smartsearch"
+main = "src/worker.js"
+compatibility_date = "2024-04-20"
+
+[site]
+bucket = "./assets"
+
+[site.mounts]
+source = "./assets"
+destination = "" 
