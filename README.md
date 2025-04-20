@@ -3,7 +3,7 @@
 A browser extension for Chromium-based browsers that intelligently routes your searches between your preferred search engines based on your query type.
 
 ## 🎥 Demo
-![Smart Search Router Demo](SmartSearch.gif)
+![Smart Search Router Demo](SmartSearch_v2.gif)
 
 ## ✨ Features
 
