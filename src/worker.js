@@ -2,6 +2,7 @@ import { SEARCH_ENGINES } from './lib/constants';
 import { isQuestion, getCountryFromRequest } from './lib/utils';
 import { getSettingsPage } from './lib/html';
 import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
+import { securityHeaders } from './lib/security';
 import manifestJSON from '__STATIC_CONTENT_MANIFEST';
 
 const assetManifest = JSON.parse(manifestJSON);
@@ -11,6 +12,14 @@ export default {
     try {
       const url = new URL(request.url);
       
+      const createResponse = (response) => {
+        const newResponse = new Response(response.body, response);
+        Object.entries(securityHeaders).forEach(([key, value]) => {
+          newResponse.headers.set(key, value);
+        });
+        return newResponse;
+      };
+
       // Force HTTPS
       if (url.protocol === 'http:') {
         url.protocol = 'https:';
@@ -35,8 +44,7 @@ export default {
             }
           );
         } catch (e) {
-          console.error('Asset error:', e);
-          return new Response(`Error serving asset: ${e.message}`, { status: 500 });
+          return new Response('Internal Server Error', { status: 500 });
         }
       }
 
