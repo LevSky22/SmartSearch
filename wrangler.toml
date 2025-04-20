@@ -11,4 +11,30 @@ kv_namespaces = [
 ]
 
 [site]
-bucket = "./assets" 
+bucket = "./assets"
+
+[build]
+command = ""
+
+# Ensure all assets are served
+[build.upload]
+format = "service-worker"
+
+# Static asset handling
+[[rules]]
+type = "Text"
+globs = ["**/*.{css,html,xml}"]
+fallthrough = false
+
+[[rules]]
+type = "Data"
+globs = ["**/*.{png,ico,jpg,jpeg,gif}"]
+fallthrough = false
+
+[env.production]
+route = "smartsearch.lev-jampolsky.workers.dev/*"
+
+# Asset handling
+[site.static]
+include = ["**/*"]
+exclude = [] 
