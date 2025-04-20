@@ -2,6 +2,9 @@
 
 A browser extension for Chromium-based browsers that intelligently routes your searches between Perplexity and Google based on your query type.
 
+## Demo
+![Smart Search Router Demo](https://i.imgur.com/AETz1vI.gif)
+
 ## Features
 
 - Use the `x` keyword in your browser's omnibox (address bar) to activate the extension
