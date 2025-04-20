@@ -6,7 +6,7 @@ import { securityHeaders } from './lib/security';
 import manifestJSON from '__STATIC_CONTENT_MANIFEST';
 
 const assetManifest = JSON.parse(manifestJSON);
-const ALLOWED_ORIGINS = ['https://smartsearch.lev-jampolsky.workers.dev'];
+const ALLOWED_ORIGINS = ['https://smartsearch.lev-jampolsky.workers.dev', 'https://smartsearch.fyi'];
 const MAX_QUERY_LENGTH = 1000;
 
 // Rate limiting configuration

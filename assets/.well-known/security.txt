@@ -2,4 +2,4 @@ Contact: https://x.com/LevJampolsky
 Expires: 2025-12-31T23:59:59.000Z
 Preferred-Languages: en
 Policy: https://github.com/LevSky22/SmartSearch/security/policy
-Canonical: https://smartsearch.lev-jampolsky.workers.dev/.well-known/security.txt 
+Canonical: https://smartsearch.fyi/.well-known/security.txt 
