@@ -65,7 +65,7 @@ export function getSettingsPage(url) {
             <h3>Browser Extension Setup</h3>
             <p>Install the SmartSearch extension:</p>
             <ol>
-              <li>Download and unzip the extension from <a href="https://github.com/levjampolsky/SmartSearch/releases" class="button">GitHub Releases</a></li>
+              <li>Download and unzip the extension from <a href="https://github.com/LevSky22/SmartSearch/releases" class="button">GitHub Releases</a> (coming soon)</li>
               <li>Go to Chrome/Brave Extensions page (<code>chrome://extensions</code>)</li>
               <li>Enable "Developer mode" in the top right</li>
               <li>Click "Load unpacked" and select the unzipped extension folder</li>
