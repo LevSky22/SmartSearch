@@ -18,6 +18,45 @@ const RATE_LIMIT = {
 // KV namespace for rate limiting
 const KV_NAMESPACE = 'RATE_LIMIT_STORE';
 
+// Create a generic error response that doesn't leak sensitive information
+function createErrorResponse(status, publicMessage = 'Request could not be processed') {
+  return new Response(publicMessage, { 
+    status: status,
+    headers: {
+      'Content-Type': 'text/plain',
+      'Cache-Control': 'no-store'
+    }
+  });
+}
+
+// Validate request basics before processing
+function validateRequest(request) {
+  // Check request size (prevent DOS via large requests)
+  const contentLength = request.headers.get('content-length');
+  if (contentLength && parseInt(contentLength, 10) > 10000) {
+    return createErrorResponse(413, 'Payload too large');
+  }
+  
+  // Check for required headers
+  if (!request.headers.get('host')) {
+    return createErrorResponse(400, 'Missing host header');
+  }
+
+  // Check for suspicious user-agent patterns (basic bot detection)
+  const userAgent = request.headers.get('user-agent') || '';
+  if (userAgent.includes('bot') && 
+      !userAgent.includes('googlebot') && 
+      !userAgent.includes('bingbot') && 
+      !userAgent.includes('yandexbot')) {
+    // Don't reveal why it was blocked, just slow the response
+    return new Promise(resolve => {
+      setTimeout(() => resolve(createErrorResponse(403)), 2000);
+    });
+  }
+  
+  return null;
+}
+
 // Helper function to determine content type
 function getContentType(pathname) {
   const extension = pathname.split('.').pop().toLowerCase();
@@ -33,39 +72,77 @@ function getContentType(pathname) {
 }
 
 async function checkRateLimit(request, env) {
-  // Get client IP and add Cloudflare client fingerprint if available for better identification
-  const clientIP = request.headers.get('CF-Connecting-IP');
-  const cfFingerprint = request.headers.get('CF-Client-IP-Fingerprint') || '';
-  const userAgent = request.headers.get('User-Agent') || '';
-  
-  // Use a more unique identifier combining available data
-  const clientId = `${clientIP}:${cfFingerprint.slice(0, 10)}`;
-  const key = `${clientId}:requests`;
-  const blockKey = `${clientId}:blocked`;
-  const now = Date.now();
-  
-  // Timestamp window
-  const windowSize = 60000; // 1 minute in milliseconds
-  const timeKey = `${clientId}:timestamps`;
-  
-  // Check if IP is blocked
-  const isBlocked = await env.RATE_LIMIT_STORE.get(blockKey);
-  if (isBlocked) {
-    return new Response('Rate limit exceeded', { 
-      status: 429,
-      headers: {
-        'Retry-After': '3600'
-      }
-    });
+  // Skip rate limiting if KV store isn't available
+  if (!env.RATE_LIMIT_STORE) {
+    console.warn('Rate limiting store not available');
+    return null;
   }
 
   try {
-    // Get timestamps of previous requests in window
-    let timestamps = await env.RATE_LIMIT_STORE.get(timeKey);
-    timestamps = timestamps ? JSON.parse(timestamps) : [];
+    // Get client IP and add Cloudflare client fingerprint if available for better identification
+    const clientIP = request.headers.get('CF-Connecting-IP');
+    if (!clientIP) {
+      console.warn('Client IP not available for rate limiting');
+      return null; // Can't rate limit without IP
+    }
+
+    // Add additional client identifiers to prevent single-IP distributed attacks
+    const cfFingerprint = request.headers.get('CF-Client-IP-Fingerprint') || '';
+    const userAgent = request.headers.get('User-Agent') || '';
+    const acceptLang = request.headers.get('Accept-Language') || '';
     
-    // Filter out timestamps outside current window
-    const validTimestamps = timestamps.filter(ts => (now - ts) < windowSize);
+    // Create a fingerprint from available data
+    const fingerprintData = [
+      cfFingerprint.slice(0, 10),
+      userAgent.length > 0 ? userAgent.slice(0, 5) : '', 
+      acceptLang.length > 0 ? acceptLang.slice(0, 2) : ''
+    ].filter(Boolean).join(':');
+    
+    // Use a more unique identifier combining available data
+    const clientId = `${clientIP}:${fingerprintData}`;
+    // Hash the clientId if you have access to a crypto library
+    
+    const key = `${clientId}:requests`;
+    const blockKey = `${clientId}:blocked`;
+    const now = Date.now();
+    
+    // Timestamp window
+    const windowSize = 60000; // 1 minute in milliseconds
+    const timeKey = `${clientId}:timestamps`;
+    
+    // Check if IP is blocked with simple error handling
+    let isBlocked;
+    try {
+      isBlocked = await env.RATE_LIMIT_STORE.get(blockKey);
+    } catch (e) {
+      console.error('Error checking block status:', e);
+      // Fail open with a warning
+      return null;
+    }
+    
+    if (isBlocked) {
+      return createErrorResponse(429, 'Rate limit exceeded');
+    }
+
+    // Get timestamps of previous requests in window with error handling
+    let timestamps;
+    try {
+      const rawTimestamps = await env.RATE_LIMIT_STORE.get(timeKey);
+      timestamps = rawTimestamps ? JSON.parse(rawTimestamps) : [];
+      
+      // Validate timestamps to prevent JSON injection
+      if (!Array.isArray(timestamps)) {
+        timestamps = [];
+      }
+    } catch (e) {
+      console.error('Error retrieving timestamps:', e);
+      timestamps = [];
+    }
+    
+    // Filter out timestamps outside current window and ensure they're numbers
+    const validTimestamps = timestamps
+      .filter(ts => typeof ts === 'number' && !isNaN(ts))
+      .filter(ts => (now - ts) < windowSize);
     
     // Add current timestamp
     validTimestamps.push(now);
@@ -73,21 +150,29 @@ async function checkRateLimit(request, env) {
     // Check if limit exceeded
     if (validTimestamps.length > RATE_LIMIT.REQUESTS_PER_MINUTE) {
       // Block the client ID
-      await env.RATE_LIMIT_STORE.put(blockKey, 'true', { expirationTtl: RATE_LIMIT.BLOCK_DURATION_SECONDS });
-      return new Response('Rate limit exceeded', { 
-        status: 429,
-        headers: {
-          'Retry-After': RATE_LIMIT.BLOCK_DURATION_SECONDS.toString()
-        }
-      });
+      try {
+        await env.RATE_LIMIT_STORE.put(blockKey, 'true', { 
+          expirationTtl: RATE_LIMIT.BLOCK_DURATION_SECONDS 
+        });
+      } catch (e) {
+        console.error('Error setting block status:', e);
+      }
+      
+      return createErrorResponse(429, 'Rate limit exceeded');
     }
     
     // Update timestamps list with TTL
-    await env.RATE_LIMIT_STORE.put(timeKey, JSON.stringify(validTimestamps), { expirationTtl: 120 });
+    try {
+      await env.RATE_LIMIT_STORE.put(timeKey, JSON.stringify(validTimestamps), { 
+        expirationTtl: 120 
+      });
+    } catch (e) {
+      console.error('Error saving timestamps:', e);
+    }
     
     return null;
   } catch (e) {
-    // If KV fails, default to allowing the request to avoid breaking functionality
+    // If anything fails, log and allow the request
     console.error('Rate limiting error:', e);
     return null;
   }
@@ -174,6 +259,10 @@ async function handleSearch(request, url) {
 export default {
   async fetch(request, env, ctx) {
     try {
+      // Basic request validation first
+      const validationError = validateRequest(request);
+      if (validationError) return validationError;
+      
       const url = new URL(request.url);
       const origin = request.headers.get('Origin');
       
@@ -218,6 +307,18 @@ export default {
           url.pathname.includes('/icons/') || 
           url.pathname === '/.well-known/security.txt') {
         try {
+          // Validate asset path - prevent path traversal
+          if (url.pathname.includes('..') || url.pathname.includes('%2e%2e') || url.pathname.includes('./')) {
+            return createResponse(new Response('Invalid asset path', { status: 403 }));
+          }
+          
+          // Validate file extension against allowed types
+          const extension = url.pathname.split('.').pop().toLowerCase();
+          const allowedExtensions = ['css', 'png', 'ico', 'xml', 'txt', 'json', 'html', 'js'];
+          if (!allowedExtensions.includes(extension)) {
+            return createResponse(new Response('Invalid file type', { status: 403 }));
+          }
+          
           const options = {
             ASSET_NAMESPACE: env.__STATIC_CONTENT,
             ASSET_MANIFEST: assetManifest,
@@ -244,9 +345,15 @@ export default {
           const response = new Response(asset.body, asset);
           response.headers.set('Content-Type', contentType);
           response.headers.set('Cache-Control', 'public, max-age=31536000');
+          
+          // Add security headers for JavaScript files
+          if (extension === 'js') {
+            response.headers.set('X-Content-Type-Options', 'nosniff');
+          }
 
           return createResponse(response);
         } catch (e) {
+          console.error('Asset error:', e);
           return createResponse(new Response('Resource not available', { status: 404 }));
         }
       }
@@ -288,33 +395,23 @@ export default {
           const searchResponse = await handleSearch(request, url);
           return createResponse(searchResponse);
         } catch (error) {
-          return createResponse(new Response('Request could not be processed', { 
-            status: 500,
-            statusText: 'Error',
-            headers: {
-              'Content-Type': 'text/plain',
-              'Cache-Control': 'no-store'
-            }
-          }));
+          console.error('Search error:', error);
+          return createResponse(createErrorResponse(500));
         }
       }
 
-      // Serve the homepage/settings
+      // Serve the homepage/settings (without SRI)
       return createResponse(new Response(getSettingsPage(url), {
         headers: {
           'Content-Type': 'text/html;charset=UTF-8',
-          'Link': '<favicon.ico>; rel="icon"'
+          'Link': '<favicon.ico>; rel="icon"',
+          'Content-Security-Policy': "default-src 'self'; img-src 'self'; style-src 'self'"
         }
       }));
     } catch (error) {
-      return new Response('Request could not be processed', { 
-        status: 500,
-        statusText: 'Error',
-        headers: {
-          'Content-Type': 'text/plain',
-          'Cache-Control': 'no-store'
-        }
-      });
+      // Log the error but don't expose details in the response
+      console.error('Unhandled error:', error);
+      return createErrorResponse(500);
     }
   }
 }; 
