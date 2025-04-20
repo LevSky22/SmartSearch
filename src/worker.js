@@ -33,64 +33,76 @@ function getContentType(pathname) {
 }
 
 async function checkRateLimit(request, env) {
+  // Get client IP and add Cloudflare client fingerprint if available for better identification
   const clientIP = request.headers.get('CF-Connecting-IP');
-  const key = `${clientIP}:requests`;
-  const blockKey = `${clientIP}:blocked`;
+  const cfFingerprint = request.headers.get('CF-Client-IP-Fingerprint') || '';
+  const userAgent = request.headers.get('User-Agent') || '';
+  
+  // Use a more unique identifier combining available data
+  const clientId = `${clientIP}:${cfFingerprint.slice(0, 10)}`;
+  const key = `${clientId}:requests`;
+  const blockKey = `${clientId}:blocked`;
   const now = Date.now();
   
-  // Add timestamp to keys for cleanup
-  const timeKey = `${clientIP}:timestamp`;
+  // Timestamp window
+  const windowSize = 60000; // 1 minute in milliseconds
+  const timeKey = `${clientId}:timestamps`;
   
   // Check if IP is blocked
   const isBlocked = await env.RATE_LIMIT_STORE.get(blockKey);
   if (isBlocked) {
-    return new Response('Request could not be processed', { status: 429 });
+    return new Response('Rate limit exceeded', { 
+      status: 429,
+      headers: {
+        'Retry-After': '3600'
+      }
+    });
   }
 
-  // Get current request count
-  let count = await env.RATE_LIMIT_STORE.get(key) || 0;
-  count = parseInt(count);
-
-  // Get last request timestamp
-  const lastRequest = await env.RATE_LIMIT_STORE.get(timeKey) || now;
-  
-  // If more than 1 minute has passed, reset counter
-  if (now - parseInt(lastRequest) > 60000) {
-    count = 0;
+  try {
+    // Get timestamps of previous requests in window
+    let timestamps = await env.RATE_LIMIT_STORE.get(timeKey);
+    timestamps = timestamps ? JSON.parse(timestamps) : [];
+    
+    // Filter out timestamps outside current window
+    const validTimestamps = timestamps.filter(ts => (now - ts) < windowSize);
+    
+    // Add current timestamp
+    validTimestamps.push(now);
+    
+    // Check if limit exceeded
+    if (validTimestamps.length > RATE_LIMIT.REQUESTS_PER_MINUTE) {
+      // Block the client ID
+      await env.RATE_LIMIT_STORE.put(blockKey, 'true', { expirationTtl: RATE_LIMIT.BLOCK_DURATION_SECONDS });
+      return new Response('Rate limit exceeded', { 
+        status: 429,
+        headers: {
+          'Retry-After': RATE_LIMIT.BLOCK_DURATION_SECONDS.toString()
+        }
+      });
+    }
+    
+    // Update timestamps list with TTL
+    await env.RATE_LIMIT_STORE.put(timeKey, JSON.stringify(validTimestamps), { expirationTtl: 120 });
+    
+    return null;
+  } catch (e) {
+    // If KV fails, default to allowing the request to avoid breaking functionality
+    console.error('Rate limiting error:', e);
+    return null;
   }
-
-  if (count >= RATE_LIMIT.REQUESTS_PER_MINUTE) {
-    // Block the IP
-    await env.RATE_LIMIT_STORE.put(blockKey, 'true', { expirationTtl: RATE_LIMIT.BLOCK_DURATION_SECONDS });
-    return new Response('Request could not be processed', { status: 429 });
-  }
-
-  // Update counters with TTL
-  await env.RATE_LIMIT_STORE.put(key, (count + 1).toString(), { expirationTtl: 60 });
-  await env.RATE_LIMIT_STORE.put(timeKey, now.toString(), { expirationTtl: 60 });
-  
-  return null;
 }
 
 async function handleSearch(request, url) {
   let query;
   
-  // Validate request method
-  if (!['POST', 'GET'].includes(request.method)) {
+  // Only accept GET requests
+  if (request.method !== 'GET') {
     return new Response('Method not allowed', { status: 405 });
   }
   
   // Get and validate query
-  if (request.method === 'POST') {
-    try {
-      const formData = await request.formData();
-      query = formData.get('q');
-    } catch (e) {
-      return new Response('Invalid request format', { status: 400 });
-    }
-  } else {
-    query = url.searchParams.get('q');
-  }
+  query = url.searchParams.get('q');
 
   // Sanitize and validate query
   query = sanitizeQuery(query);
@@ -121,15 +133,41 @@ async function handleSearch(request, url) {
       countryCode
     );
     
-    // Verify URL is valid and has expected structure
+    // Enhanced URL validation
     const urlObj = new URL(searchUrl);
+    
+    // Verify URL is valid and has expected structure
     if (!urlObj.protocol.startsWith('https')) {
       throw new Error('Invalid protocol');
     }
     
+    // Validate against known safe domains
+    const safeDomains = [
+      'google.com', 'perplexity.ai',
+      ...Object.values(GOOGLE_DOMAINS).map(domain => domain.toLowerCase())
+    ];
+    
+    // Extract base domain for validation
+    const hostname = urlObj.hostname.toLowerCase();
+    const isValidDomain = safeDomains.some(domain => 
+      hostname === domain || hostname.endsWith('.' + domain)
+    );
+    
+    if (!isValidDomain) {
+      throw new Error('Invalid domain in redirect URL');
+    }
+    
+    // Ensure query parameter is properly set
+    if (!urlObj.searchParams.has('q')) {
+      throw new Error('Missing query parameter in redirect URL');
+    }
+    
     return Response.redirect(searchUrl, 302);
   } catch (e) {
-    return new Response('Request could not be processed', { status: 400 });
+    return new Response(`Invalid search request: ${e.message}`, { 
+      status: 400,
+      headers: { 'Content-Type': 'text/plain' }
+    });
   }
 }
 
@@ -149,11 +187,13 @@ export default {
         if (origin) {
           try {
             const originUrl = new URL(origin);
-            if (ALLOWED_ORIGINS.includes(originUrl.origin)) {
+            // Use exact string comparison for origins
+            if (ALLOWED_ORIGINS.includes(originUrl.origin) && originUrl.origin === originUrl.toString()) {
               newResponse.headers.set('Access-Control-Allow-Origin', originUrl.origin);
-              newResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+              newResponse.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
               newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type');
               newResponse.headers.set('Access-Control-Max-Age', '86400');
+              newResponse.headers.set('Vary', 'Origin');
             }
           } catch (e) {
             // Invalid origin, don't set CORS headers
@@ -225,8 +265,8 @@ export default {
   <Image width="48" height="48" type="image/png">${url.origin}/icons/icon48.png</Image>
   <Image width="128" height="128" type="image/png">${url.origin}/icons/icon128.png</Image>
   <Url type="text/html" 
-       method="post"
-       template="${url.origin}/search"/>
+       method="get"
+       template="${url.origin}/search?q={searchTerms}"/>
   <moz:SearchForm>${url.origin}</moz:SearchForm>
   <Developer>Lev Jampolsky</Developer>
   <Attribution>Search results provided by various engines</Attribution>
