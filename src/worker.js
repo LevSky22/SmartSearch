@@ -1,5 +1,5 @@
-import { SEARCH_ENGINES } from './lib/constants';
-import { isQuestion, getCountryFromRequest } from './lib/utils';
+import { SEARCH_ENGINES, GOOGLE_DOMAINS } from './lib/constants';
+import { isQuestion, getCountryFromRequest, sanitizeQuery, validateCountryCode } from './lib/utils';
 import { getSettingsPage } from './lib/html';
 import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
 import { securityHeaders } from './lib/security';
@@ -7,6 +7,16 @@ import manifestJSON from '__STATIC_CONTENT_MANIFEST';
 
 const assetManifest = JSON.parse(manifestJSON);
 const ALLOWED_ORIGINS = ['https://smartsearch.lev-jampolsky.workers.dev'];
+const MAX_QUERY_LENGTH = 1000;
+
+// Rate limiting configuration
+const RATE_LIMIT = {
+  REQUESTS_PER_MINUTE: 100,
+  BLOCK_DURATION_SECONDS: 3600 // 1 hour block
+};
+
+// KV namespace for rate limiting
+const KV_NAMESPACE = 'RATE_LIMIT_STORE';
 
 // Helper function to determine content type
 function getContentType(pathname) {
@@ -22,6 +32,107 @@ function getContentType(pathname) {
   return types[extension] || 'text/plain';
 }
 
+async function checkRateLimit(request, env) {
+  const clientIP = request.headers.get('CF-Connecting-IP');
+  const key = `${clientIP}:requests`;
+  const blockKey = `${clientIP}:blocked`;
+  const now = Date.now();
+  
+  // Add timestamp to keys for cleanup
+  const timeKey = `${clientIP}:timestamp`;
+  
+  // Check if IP is blocked
+  const isBlocked = await env.RATE_LIMIT_STORE.get(blockKey);
+  if (isBlocked) {
+    return new Response('Request could not be processed', { status: 429 });
+  }
+
+  // Get current request count
+  let count = await env.RATE_LIMIT_STORE.get(key) || 0;
+  count = parseInt(count);
+
+  // Get last request timestamp
+  const lastRequest = await env.RATE_LIMIT_STORE.get(timeKey) || now;
+  
+  // If more than 1 minute has passed, reset counter
+  if (now - parseInt(lastRequest) > 60000) {
+    count = 0;
+  }
+
+  if (count >= RATE_LIMIT.REQUESTS_PER_MINUTE) {
+    // Block the IP
+    await env.RATE_LIMIT_STORE.put(blockKey, 'true', { expirationTtl: RATE_LIMIT.BLOCK_DURATION_SECONDS });
+    return new Response('Request could not be processed', { status: 429 });
+  }
+
+  // Update counters with TTL
+  await env.RATE_LIMIT_STORE.put(key, (count + 1).toString(), { expirationTtl: 60 });
+  await env.RATE_LIMIT_STORE.put(timeKey, now.toString(), { expirationTtl: 60 });
+  
+  return null;
+}
+
+async function handleSearch(request, url) {
+  let query;
+  
+  // Validate request method
+  if (!['POST', 'GET'].includes(request.method)) {
+    return new Response('Method not allowed', { status: 405 });
+  }
+  
+  // Get and validate query
+  if (request.method === 'POST') {
+    try {
+      const formData = await request.formData();
+      query = formData.get('q');
+    } catch (e) {
+      return new Response('Invalid request format', { status: 400 });
+    }
+  } else {
+    query = url.searchParams.get('q');
+  }
+
+  // Sanitize and validate query
+  query = sanitizeQuery(query);
+  
+  if (!query || query.length === 0 || query.length > MAX_QUERY_LENGTH) {
+    return new Response('Invalid query length', { status: 400 });
+  }
+
+  // Validate and sanitize search engine parameters
+  const allowedEngines = ['google', 'perplexity'];
+  const keywordEngine = allowedEngines.includes(url.searchParams.get('keywordEngine')) 
+    ? url.searchParams.get('keywordEngine') 
+    : 'google';
+  const questionEngine = allowedEngines.includes(url.searchParams.get('questionEngine'))
+    ? url.searchParams.get('questionEngine')
+    : 'perplexity';
+
+  // Validate country code
+  const rawCountryCode = getCountryFromRequest(request);
+  const countryCode = validateCountryCode(rawCountryCode);
+
+  const selectedEngine = isQuestion(query) ? questionEngine : keywordEngine;
+  
+  // Validate final URL construction
+  try {
+    const searchUrl = SEARCH_ENGINES[selectedEngine](
+      encodeURIComponent(query),
+      countryCode
+    );
+    
+    // Verify URL is valid and has expected structure
+    const urlObj = new URL(searchUrl);
+    if (!urlObj.protocol.startsWith('https')) {
+      throw new Error('Invalid protocol');
+    }
+    
+    return Response.redirect(searchUrl, 302);
+  } catch (e) {
+    return new Response('Request could not be processed', { status: 400 });
+  }
+}
+
 export default {
   async fetch(request, env, ctx) {
     try {
@@ -33,10 +144,20 @@ export default {
         Object.entries(securityHeaders).forEach(([key, value]) => {
           newResponse.headers.set(key, value);
         });
-        if (origin && ALLOWED_ORIGINS.includes(origin)) {
-          newResponse.headers.set('Access-Control-Allow-Origin', origin);
-          newResponse.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-          newResponse.headers.set('Access-Control-Max-Age', '86400');
+        
+        // Strict origin validation
+        if (origin) {
+          try {
+            const originUrl = new URL(origin);
+            if (ALLOWED_ORIGINS.includes(originUrl.origin)) {
+              newResponse.headers.set('Access-Control-Allow-Origin', originUrl.origin);
+              newResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+              newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+              newResponse.headers.set('Access-Control-Max-Age', '86400');
+            }
+          } catch (e) {
+            // Invalid origin, don't set CORS headers
+          }
         }
         return newResponse;
       };
@@ -53,7 +174,9 @@ export default {
       }
 
       // Handle static assets
-      if (url.pathname.startsWith('/assets/') || url.pathname === '/favicon.ico' || url.pathname.includes('/icons/')) {
+      if (url.pathname.startsWith('/assets/') || 
+          url.pathname.includes('/icons/') || 
+          url.pathname === '/.well-known/security.txt') {
         try {
           const options = {
             ASSET_NAMESPACE: env.__STATIC_CONTENT,
@@ -64,7 +187,6 @@ export default {
             },
           };
 
-          // Create a new request with the correct path
           let assetPath = url.pathname;
           if (assetPath.startsWith('/assets/')) {
             assetPath = assetPath.replace('/assets/', '/');
@@ -73,14 +195,11 @@ export default {
           const assetUrl = new URL(assetPath, url.origin);
           const assetRequest = new Request(assetUrl.toString(), request);
           
-          console.log('Fetching asset:', assetPath);
-          
           const asset = await getAssetFromKV({
             request: assetRequest,
             waitUntil: ctx.waitUntil.bind(ctx)
           }, options);
 
-          // Set correct content type
           const contentType = getContentType(url.pathname);
           const response = new Response(asset.body, asset);
           response.headers.set('Content-Type', contentType);
@@ -88,31 +207,8 @@ export default {
 
           return createResponse(response);
         } catch (e) {
-          console.error('Asset error:', e.stack || e.message);
-          return createResponse(new Response('Not Found', { status: 404 }));
+          return createResponse(new Response('Resource not available', { status: 404 }));
         }
-      }
-
-      // Rate limiting for API endpoints
-      if (url.pathname === '/search' || url.pathname === '/suggest') {
-        const ip = request.headers.get('cf-connecting-ip');
-        const country = request.cf?.country || 'XX';
-        const colo = request.cf?.colo || 'XXX';
-        const rateLimitKey = `ratelimit:${ip}:${country}:${colo}`;
-        
-        let count = await env.RATE_LIMITS.get(rateLimitKey);
-        count = count ? parseInt(count) : 0;
-        
-        if (count > 2000) {
-          return createResponse(new Response('Too Many Requests', { 
-            status: 429,
-            headers: { 'Retry-After': '86400' }
-          }));
-        }
-        
-        await env.RATE_LIMITS.put(rateLimitKey, count + 1, {
-          expirationTtl: 86400
-        });
       }
 
       // Handle OpenSearch description document
@@ -125,16 +221,12 @@ export default {
   <InputEncoding>UTF-8</InputEncoding>
   <OutputEncoding>UTF-8</OutputEncoding>
   <Language>en-US</Language>
-  <Contact>admin@example.com</Contact>
   <Image width="16" height="16" type="image/png">${url.origin}/icons/icon16.png</Image>
   <Image width="48" height="48" type="image/png">${url.origin}/icons/icon48.png</Image>
   <Image width="128" height="128" type="image/png">${url.origin}/icons/icon128.png</Image>
   <Url type="text/html" 
-       method="get"
-       template="${url.origin}/search?q={searchTerms}"/>
-  <Url type="application/x-suggestions+json"
-       method="get"
-       template="${url.origin}/suggest?q={searchTerms}"/>
+       method="post"
+       template="${url.origin}/search"/>
   <moz:SearchForm>${url.origin}</moz:SearchForm>
   <Developer>Lev Jampolsky</Developer>
   <Attribution>Search results provided by various engines</Attribution>
@@ -148,44 +240,23 @@ export default {
 
       // Handle search requests
       if (url.pathname === '/search') {
-        const query = url.searchParams.get('q');
-        if (!query) {
-          return createResponse(new Response('Bad Request: Missing query parameter', { status: 400 }));
-        }
-
-        const keywordEngine = url.searchParams.get('keywordEngine') || 'google';
-        const questionEngine = url.searchParams.get('questionEngine') || 'perplexity';
-        const selectedEngine = isQuestion(query) ? questionEngine : keywordEngine;
-        const countryCode = getCountryFromRequest(request);
-        
-        const searchUrl = SEARCH_ENGINES[selectedEngine](
-          encodeURIComponent(query.trim()),
-          countryCode
-        );
-
-        return Response.redirect(searchUrl, 302);
-      }
-
-      // Handle suggestion requests
-      if (url.pathname === '/suggest') {
-        const query = url.searchParams.get('q')?.trim() || '';
-        if (!query) {
-          return createResponse(new Response('[]', {
-            headers: { 'Content-Type': 'application/json' }
+        try {
+          const rateLimit = await checkRateLimit(request, env);
+          if (rateLimit) {
+            return rateLimit;
+          }
+          const searchResponse = await handleSearch(request, url);
+          return createResponse(searchResponse);
+        } catch (error) {
+          return createResponse(new Response('Request could not be processed', { 
+            status: 500,
+            statusText: 'Error',
+            headers: {
+              'Content-Type': 'text/plain',
+              'Cache-Control': 'no-store'
+            }
           }));
         }
-
-        return createResponse(new Response(JSON.stringify([
-          query,
-          [query + " example", query + " help", query + " guide"],
-          ["Try this!", "Maybe this?", "Or this?"],
-          ["https://example.com", "https://example.com", "https://example.com"]
-        ]), {
-          headers: {
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-cache'
-          }
-        }));
       }
 
       // Serve the homepage/settings
@@ -193,11 +264,17 @@ export default {
         headers: {
           'Content-Type': 'text/html;charset=UTF-8',
           'Link': '<favicon.ico>; rel="icon"'
-        },
+        }
       }));
     } catch (error) {
-      console.error('Server error:', error);
-      return new Response('Internal Server Error', { status: 500 });
+      return new Response('Request could not be processed', { 
+        status: 500,
+        statusText: 'Error',
+        headers: {
+          'Content-Type': 'text/plain',
+          'Cache-Control': 'no-store'
+        }
+      });
     }
-  },
+  }
 }; 
