@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Smart Search Router",
-    "description": "Use 'x' + query to route questions to Perplexity, keywords to Google.",
+    "description": "Smart search router that lets you choose your preferred engines for questions and keywords. Use 'x' + query to search.",
     "version": "1.1",
     "author": "Lev Jampolsky",
     "homepage_url": "https://x.com/LevJampolsky",
