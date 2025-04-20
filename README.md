@@ -27,11 +27,17 @@ A browser extension for Chromium-based browsers that intelligently routes your s
 
 ## 📖 Usage
 
-1. Click the extension icon to configure your preferred search engines
-2. Simply type your search query in your browser's address bar:
-   - For questions: `what is the capital of France?`
-   - For keywords: `best restaurants nyc`
-3. Press Enter to be redirected to your chosen search engine based on query type
+Simply type your query in your browser's address bar:
+- For questions (routed to Perplexity): 
+  - `what is quantum computing?`
+  - `how does photosynthesis work?`
+  - `why is the sky blue?`
+- For keywords (routed to Google):
+  - `best pizza nyc`
+  - `python tutorial`
+  - `weather london`
+
+The extension automatically detects your query type and routes you to the appropriate search engine.
 
 ## 🔒 Privacy
 
