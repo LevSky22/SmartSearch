@@ -15,5 +15,5 @@ export const securityHeaders = {
   'Cross-Origin-Embedder-Policy': 'require-corp',
   'Clear-Site-Data': '"cache","cookies","storage"',
   'NEL': '{"report_to":"default","max_age":31536000,"include_subdomains":true,"success_fraction":0.0,"failure_fraction":1.0}',
-  'Report-To': '{"group":"default","max_age":31536000,"endpoints":[{"url":"https://smartsearch.lev-jampolsky.workers.dev/_reporting"}]}'
+  'Report-To': '{"group":"default","max_age":31536000,"endpoints":[{"url":"https://smartsearch.fyi/_reporting"}]}'
 }; 

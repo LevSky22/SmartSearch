@@ -7,7 +7,7 @@
     "homepage_url": "https://x.com/LevJampolsky",
     "permissions": [],
     "host_permissions": [
-      "https://smartsearch.lev-jampolsky.workers.dev/*"
+      "https://smartsearch.fyi/*"
     ],
     "icons": {
       "16": "assets/icons/icon16.png",
@@ -18,10 +18,10 @@
       "search_provider": {
         "name": "SmartSearch",
         "keyword": "smart",
-        "favicon_url": "https://smartsearch.lev-jampolsky.workers.dev/assets/icons/icon16.png",
-        "search_url": "https://smartsearch.lev-jampolsky.workers.dev/search?q={searchTerms}",
-        "suggest_url": "https://smartsearch.lev-jampolsky.workers.dev/suggest?q={searchTerms}",
-        "image_url": "https://smartsearch.lev-jampolsky.workers.dev/search?q={searchTerms}&type=image",
+        "favicon_url": "https://smartsearch.fyi/assets/icons/icon16.png",
+        "search_url": "https://smartsearch.fyi/search?q={searchTerms}",
+        "suggest_url": "https://smartsearch.fyi/suggest?q={searchTerms}",
+        "image_url": "https://smartsearch.fyi/search?q={searchTerms}&type=image",
         "encoding": "UTF-8",
         "is_default": true
       }

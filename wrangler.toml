@@ -25,4 +25,4 @@ globs = ["icons/*.{png,ico}", "*.{png,ico,jpg,jpeg}"]
 fallthrough = false
 
 [env.production]
-route = "smartsearch.lev-jampolsky.workers.dev/*" 
+route = "smartsearch.fyi/*" 
