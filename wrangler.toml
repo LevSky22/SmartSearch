@@ -2,39 +2,27 @@ name = "smartsearch"
 main = "src/worker.js"
 compatibility_date = "2025-04-20"
 
+# KV Namespace configuration
+[[kv_namespaces]]
+binding = "RATE_LIMIT_STORE"
+id = "f7d4a7a18e494bcdacf659fea21f53f9"
+
 # Disable logging by not defining any log settings
 # Disable analytics by not defining any datasets
-
-# KV Namespace for rate limiting
-kv_namespaces = [
-  { binding = "RATE_LIMITS", id = "0be9819908b244c780e58f8a4999dd72" }
-]
 
 [site]
 bucket = "./assets"
 
-[build]
-command = ""
-
-# Ensure all assets are served
-[build.upload]
-format = "service-worker"
-
-# Static asset handling
+# Static asset handling with strict rules
 [[rules]]
 type = "Text"
-globs = ["**/*.{css,html,xml}"]
+globs = ["*.css", "*.html", "opensearch.xml"]
 fallthrough = false
 
 [[rules]]
 type = "Data"
-globs = ["**/*.{png,ico,jpg,jpeg,gif}"]
+globs = ["icons/*.{png,ico}", "*.{png,ico,jpg,jpeg}"]
 fallthrough = false
 
 [env.production]
-route = "smartsearch.lev-jampolsky.workers.dev/*"
-
-# Asset handling
-[site.static]
-include = ["**/*"]
-exclude = [] 
+route = "smartsearch.lev-jampolsky.workers.dev/*" 
