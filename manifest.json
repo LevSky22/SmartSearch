@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "SmartSearch",
-    "version": "1.0",
+    "version": "2.0",
     "description": "Smart search router that automatically chooses the best search engine based on your query",
     "author": "Lev Jampolsky",
     "homepage_url": "https://x.com/LevJampolsky",
