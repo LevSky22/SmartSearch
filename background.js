@@ -219,17 +219,26 @@ function getGoogleDomain(countryCode) {
   return GOOGLE_DOMAINS[countryCode] || 'google.com';
 }
 
+const SEARCH_ENGINES = {
+  google: (query, countryCode) => {
+    const domain = getGoogleDomain(countryCode);
+    return `https://www.${domain}/search?q=${query}&gl=${countryCode}`;
+  },
+  bing: (query) => `https://www.bing.com/search?q=${query}`,
+  duckduckgo: (query) => `https://duckduckgo.com/?q=${query}`,
+  perplexity: (query) => `https://www.perplexity.ai/search?q=${query}`
+};
+
 chrome.omnibox.onInputEntered.addListener(async (query) => {
   const encoded = encodeURIComponent(query);
-  let url;
+  const countryCode = await getCountryCode();
   
-  if (isQuestion(query)) {
-    url = `https://www.perplexity.ai/search?q=${encoded}`;
-  } else {
-    const countryCode = await getCountryCode();
-    const domain = getGoogleDomain(countryCode);
-    url = `https://www.${domain}/search?q=${encoded}&gl=${countryCode}`;
-  }
+  // Get user preferences
+  const { keywordEngine = 'google', questionEngine = 'perplexity' } = 
+    await chrome.storage.sync.get(['keywordEngine', 'questionEngine']);
+  
+  const selectedEngine = isQuestion(query) ? questionEngine : keywordEngine;
+  const url = SEARCH_ENGINES[selectedEngine](encoded, countryCode);
+  
   chrome.tabs.create({ url });
 });
-  
