@@ -51,6 +51,10 @@ Feel free to submit issues and pull requests.
 
 ## License
 
-MIT License - feel free to use and modify as needed. 
+MIT License - feel free to use and modify as needed.
+
+## Credits
+
+Matryoshka icon provided by [Icojam.com](https://icojam.com)
 
 *This is totally vibe-coded by the way. Including this README.*
