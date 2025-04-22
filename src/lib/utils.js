@@ -1,5 +1,18 @@
 export function isQuestion(query) {
   const q = query.trim().toLowerCase();
+  
+  // Check for currency conversion patterns
+  // Handles formats like:
+  // - 1000CAD in USD
+  // - 1000 CAD to USD
+  // - CAD to USD
+  // - convert 100 CAD to USD
+  // - 100 Canadian dollars in USD
+  const currencyPattern = /^(convert\s+)?(\d+\s+)?[a-z]{3}\s*(in|to|into)\s*[a-z]{3}$/i;
+  if (currencyPattern.test(q)) {
+    return false; // Route to Google
+  }
+
   const questionWords = ["who", "what", "when", "where", "why", "how"];
   return q.endsWith("?") || 
          questionWords.some(w => q.startsWith(w + " ")) || 
