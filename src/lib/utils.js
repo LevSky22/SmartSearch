@@ -7,8 +7,9 @@ export function isQuestion(query) {
   // - 1000 CAD to USD
   // - CAD to USD
   // - convert 100 CAD to USD
-  // - 100 Canadian dollars in USD
-  const currencyPattern = /^(convert\s+)?(\d+\s+)?[a-z]{3}\s*(in|to|into)\s*[a-z]{3}$/i;
+  // - 50k USD in CAD
+  // - 1.5m eur to usd
+  const currencyPattern = /^(convert\s+)?(\d+(\.\d+)?[km]?\s+)?[a-z]{3}\s*(in|to|into)\s*[a-z]{3}$/i;
   if (currencyPattern.test(q)) {
     return false; // Route to Google
   }
