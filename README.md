@@ -1,6 +1,6 @@
 # 🔍 Smart Search Router
 
-A browser extension for Chromium-based browsers that intelligently routes your searches between your preferred search engines based on your query type.
+A browser extension that intelligently routes searches between Google & Perplexity based on your query type. Ask questions → Perplexity. Search keywords → Google.
 
 ## 🎥 Demo
 ![Smart Search Router Demo](SmartSearch_v2.gif)
