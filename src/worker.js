@@ -6,7 +6,7 @@ import { securityHeaders } from './lib/security';
 import manifestJSON from '__STATIC_CONTENT_MANIFEST';
 
 const assetManifest = JSON.parse(manifestJSON);
-const ALLOWED_ORIGINS = ['https://smartsearch.lev-jampolsky.workers.dev', 'https://smartsearch.fyi'];
+const ALLOWED_ORIGINS = ['https://smartsearch.fyi'];
 const MAX_QUERY_LENGTH = 1000;
 
 // Rate limiting configuration
@@ -74,7 +74,6 @@ function getContentType(pathname) {
 async function checkRateLimit(request, env) {
   // Skip rate limiting if KV store isn't available
   if (!env.RATE_LIMIT_STORE) {
-    console.warn('Rate limiting store not available');
     return null;
   }
 
@@ -82,7 +81,6 @@ async function checkRateLimit(request, env) {
     // Get client IP and add Cloudflare client fingerprint if available for better identification
     const clientIP = request.headers.get('CF-Connecting-IP');
     if (!clientIP) {
-      console.warn('Client IP not available for rate limiting');
       return null; // Can't rate limit without IP
     }
 
@@ -115,8 +113,7 @@ async function checkRateLimit(request, env) {
     try {
       isBlocked = await env.RATE_LIMIT_STORE.get(blockKey);
     } catch (e) {
-      console.error('Error checking block status:', e);
-      // Fail open with a warning
+      // Fail open silently
       return null;
     }
     
@@ -135,7 +132,6 @@ async function checkRateLimit(request, env) {
         timestamps = [];
       }
     } catch (e) {
-      console.error('Error retrieving timestamps:', e);
       timestamps = [];
     }
     
@@ -155,7 +151,7 @@ async function checkRateLimit(request, env) {
           expirationTtl: RATE_LIMIT.BLOCK_DURATION_SECONDS 
         });
       } catch (e) {
-        console.error('Error setting block status:', e);
+        // Silently continue if block status fails
       }
       
       return createErrorResponse(429, 'Rate limit exceeded');
@@ -167,13 +163,12 @@ async function checkRateLimit(request, env) {
         expirationTtl: 120 
       });
     } catch (e) {
-      console.error('Error saving timestamps:', e);
+      // Silently continue if timestamp save fails
     }
     
     return null;
   } catch (e) {
-    // If anything fails, log and allow the request
-    console.error('Rate limiting error:', e);
+    // If anything fails, allow the request
     return null;
   }
 }
@@ -353,7 +348,6 @@ export default {
 
           return createResponse(response);
         } catch (e) {
-          console.error('Asset error:', e);
           return createResponse(new Response('Resource not available', { status: 404 }));
         }
       }
@@ -395,7 +389,6 @@ export default {
           const searchResponse = await handleSearch(request, url);
           return createResponse(searchResponse);
         } catch (error) {
-          console.error('Search error:', error);
           return createResponse(createErrorResponse(500));
         }
       }
@@ -409,8 +402,7 @@ export default {
         }
       }));
     } catch (error) {
-      // Log the error but don't expose details in the response
-      console.error('Unhandled error:', error);
+      // Don't expose error details in the response
       return createErrorResponse(500);
     }
   }

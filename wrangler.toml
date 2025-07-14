@@ -5,7 +5,7 @@ compatibility_date = "2025-04-20"
 # KV Namespace configuration
 [[kv_namespaces]]
 binding = "RATE_LIMIT_STORE"
-id = "f7d4a7a18e494bcdacf659fea21f53f9"
+id = "1539951d25c547f8bdcdacbb42ff93bb"
 
 # Disable logging by not defining any log settings
 # Disable analytics by not defining any datasets
