@@ -24,6 +24,15 @@ export function getCountryFromRequest(request) {
   return request.headers.get('cf-ipcountry') || 'US';
 }
 
+export function isMathExpression(query) {
+  if (!query || typeof query !== 'string') return false;
+  
+  // Match simple math expressions like "24/2", "10*5", "100+50", "50-25"
+  // Only allow numbers, spaces, and basic operators: +, -, *, /
+  const mathPattern = /^\s*(\d+(?:\.\d+)?)\s*([+\-*/])\s*(\d+(?:\.\d+)?)\s*$/;
+  return mathPattern.test(query.trim());
+}
+
 export function sanitizeQuery(query) {
   if (!query || typeof query !== 'string') return '';
   
@@ -35,8 +44,26 @@ export function sanitizeQuery(query) {
   // Remove potential HTML/script tags more aggressively
   query = query.replace(/<[^>]*>?/g, '');
   
-  // Remove potential script injection characters and other problematic characters
-  query = query.replace(/[<>{}()[\]\\\/;`'"|&*%$^#@!~=+]/g, '');
+  // If it's a math expression, preserve math operators but still remove other dangerous chars
+  const isMath = isMathExpression(query);
+  
+  if (isMath) {
+    // For math expressions, only remove dangerous characters but keep +, -, *, /
+    query = query.replace(/[<>{}[\]\\;`|&%$^#@!~]/g, '');
+  } else {
+    // Preserve common search operators that Google supports:
+    // ? - question marks (for questions)
+    // " - quotes (for exact phrase searches)
+    // : - colons (for operators like site:example.com)
+    // () - parentheses (for grouping)
+    // - - minus (for excluding terms)
+    // + - plus (for requiring terms)
+    // / - forward slash (for paths, dates, etc.)
+    // * - asterisk (for wildcards)
+    // = - equals (for some operators)
+    // Remove only truly dangerous characters that could cause security issues
+    query = query.replace(/[<>{}[\]\\;`|&%$^#@!~]/g, '');
+  }
   
   // Normalize whitespace
   query = query.replace(/\s+/g, ' ');

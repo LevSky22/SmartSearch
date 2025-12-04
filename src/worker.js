@@ -184,7 +184,7 @@ async function handleSearch(request, url) {
   // Get and validate query
   query = url.searchParams.get('q');
 
-  // Sanitize and validate query
+  // Sanitize and validate query (preserves math operators for expressions like "24/2")
   query = sanitizeQuery(query);
   
   if (!query || query.length === 0 || query.length > MAX_QUERY_LENGTH) {
