@@ -1,10 +1,13 @@
 {
   "name": "smartsearch",
-  "version": "2.0.0",
+  "version": "2.0.3",
   "description": "A browser extension for Chromium-based browsers that intelligently routes your searches between your preferred search engines based on your query type.",
   "main": "src/worker.js",
   "dependencies": {
     "@cloudflare/kv-asset-handler": "^0.4.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
   },
   "scripts": {
     "dev": "wrangler dev",
