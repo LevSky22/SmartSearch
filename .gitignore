@@ -4,6 +4,3 @@ node_modules/
 
 # Release files
 release/
-
-# Cloudflare configuration
-wrangler.toml
