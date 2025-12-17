@@ -71,7 +71,7 @@ function getContentType(pathname) {
   return types[extension] || 'text/plain';
 }
 
-async function checkRateLimit(request, env) {
+async function checkRateLimit(request, env, ctx) {
   // Skip rate limiting if KV store isn't available
   if (!env.RATE_LIMIT_STORE) {
     return null;
@@ -98,9 +98,7 @@ async function checkRateLimit(request, env) {
     
     // Use a more unique identifier combining available data
     const clientId = `${clientIP}:${fingerprintData}`;
-    // Hash the clientId if you have access to a crypto library
     
-    const key = `${clientId}:requests`;
     const blockKey = `${clientId}:blocked`;
     const now = Date.now();
     
@@ -108,26 +106,20 @@ async function checkRateLimit(request, env) {
     const windowSize = 60000; // 1 minute in milliseconds
     const timeKey = `${clientId}:timestamps`;
     
-    // Check if IP is blocked with simple error handling
-    let isBlocked;
-    try {
-      isBlocked = await env.RATE_LIMIT_STORE.get(blockKey);
-    } catch (e) {
-      // Fail open silently
-      return null;
-    }
+    // Parallel KV reads for better latency
+    const [isBlocked, rawTimestamps] = await Promise.all([
+      env.RATE_LIMIT_STORE.get(blockKey).catch(() => null),
+      env.RATE_LIMIT_STORE.get(timeKey).catch(() => null)
+    ]);
     
     if (isBlocked) {
       return createErrorResponse(429, 'Rate limit exceeded');
     }
 
-    // Get timestamps of previous requests in window with error handling
-    let timestamps;
+    // Parse timestamps with validation
+    let timestamps = [];
     try {
-      const rawTimestamps = await env.RATE_LIMIT_STORE.get(timeKey);
       timestamps = rawTimestamps ? JSON.parse(rawTimestamps) : [];
-      
-      // Validate timestamps to prevent JSON injection
       if (!Array.isArray(timestamps)) {
         timestamps = [];
       }
@@ -145,19 +137,17 @@ async function checkRateLimit(request, env) {
     
     // Check if limit exceeded
     if (validTimestamps.length > RATE_LIMIT.REQUESTS_PER_MINUTE) {
-      // Block the client ID
-      try {
-        await env.RATE_LIMIT_STORE.put(blockKey, 'true', { 
+      // Block the client ID (async, don't wait)
+      ctx.waitUntil(
+        env.RATE_LIMIT_STORE.put(blockKey, 'true', { 
           expirationTtl: RATE_LIMIT.BLOCK_DURATION_SECONDS 
-        });
-      } catch (e) {
-        // Silently continue if block status fails
-      }
+        }).catch(() => {})
+      );
       
       return createErrorResponse(429, 'Rate limit exceeded');
     }
     
-    // Update timestamps list with TTL
+    // Update timestamps list with TTL (blocking to prevent race conditions)
     try {
       await env.RATE_LIMIT_STORE.put(timeKey, JSON.stringify(validTimestamps), { 
         expirationTtl: 120 
@@ -382,7 +372,7 @@ export default {
       // Handle search requests
       if (url.pathname === '/search') {
         try {
-          const rateLimit = await checkRateLimit(request, env);
+          const rateLimit = await checkRateLimit(request, env, ctx);
           if (rateLimit) {
             return rateLimit;
           }
