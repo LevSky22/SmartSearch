@@ -147,12 +147,14 @@ async function checkRateLimit(request, env, ctx) {
       return createErrorResponse(429, 'Rate limit exceeded');
     }
     
-    // Update timestamps list with TTL (async, don't wait)
-    ctx.waitUntil(
-      env.RATE_LIMIT_STORE.put(timeKey, JSON.stringify(validTimestamps), { 
+    // Update timestamps list with TTL (blocking to prevent race conditions)
+    try {
+      await env.RATE_LIMIT_STORE.put(timeKey, JSON.stringify(validTimestamps), { 
         expirationTtl: 120 
-      }).catch(() => {})
-    );
+      });
+    } catch (e) {
+      // Silently continue if timestamp save fails
+    }
     
     return null;
   } catch (e) {
