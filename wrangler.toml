@@ -2,6 +2,7 @@ name = "smartsearch"
 main = "src/worker.js"
 compatibility_date = "2025-12-17"
 workers_dev = false
+route = "smartsearch.fyi/*"
 
 # KV Namespace configuration
 [[kv_namespaces]]
@@ -24,6 +25,3 @@ fallthrough = false
 type = "Data"
 globs = ["icons/*.{png,ico}", "*.{png,ico,jpg,jpeg}"]
 fallthrough = false
-
-[env.production]
-route = "smartsearch.fyi/*"

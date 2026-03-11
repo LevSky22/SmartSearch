@@ -13,7 +13,9 @@ export const securityHeaders = {
   'Cross-Origin-Resource-Policy': 'same-origin',
   'Cross-Origin-Opener-Policy': 'same-origin',
   'Cross-Origin-Embedder-Policy': 'require-corp',
-  'Clear-Site-Data': '"cache","cookies","storage"',
+  // Omit "cache" to avoid Chrome bug: Clear-Site-Data with "cache" on 302 causes
+// Content Download to hang 1–30s on macOS/Linux (Chromium bug; fine in Firefox/Incognito).
+'Clear-Site-Data': '"cookies","storage"',
   'NEL': '{"report_to":"default","max_age":31536000,"include_subdomains":true,"success_fraction":0.0,"failure_fraction":1.0}',
   'Report-To': '{"group":"default","max_age":31536000,"endpoints":[{"url":"https://smartsearch.fyi/_reporting"}]}'
 }; 
