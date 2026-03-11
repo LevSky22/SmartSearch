@@ -53,7 +53,7 @@ function validateRequest(request) {
       setTimeout(() => resolve(createErrorResponse(403)), 2000);
     });
   }
-  
+
   return null;
 }
 
@@ -244,11 +244,12 @@ async function handleSearch(request, url) {
 export default {
   async fetch(request, env, ctx) {
     try {
-      // Basic request validation first
-      const validationError = validateRequest(request);
-      if (validationError) return validationError;
-      
       const url = new URL(request.url);
+
+      // Basic request validation first (can return Promise on bot delay)
+      const validationError = await validateRequest(request);
+      if (validationError) return validationError;
+
       const origin = request.headers.get('Origin');
       
       const createResponse = (response) => {
@@ -373,9 +374,7 @@ export default {
       if (url.pathname === '/search') {
         try {
           const rateLimit = await checkRateLimit(request, env, ctx);
-          if (rateLimit) {
-            return rateLimit;
-          }
+          if (rateLimit) return rateLimit;
           const searchResponse = await handleSearch(request, url);
           return createResponse(searchResponse);
         } catch (error) {
